@@ -1,10 +1,13 @@
 plugins {
   id 'io.spring.dependency-management' version '1.0.5.RELEASE' apply false
   id 'org.springframework.boot' version '2.0.2.RELEASE' apply false
+  id 'io.franzbecker.gradle-lombok' version '1.14' apply false
   id 'cn.bestwu.propdeps-maven' version '0.0.10' apply false
   id 'cn.bestwu.propdeps-idea' version '0.0.10' apply false
   id 'cn.bestwu.propdeps' version '0.0.10' apply false
 }
+
+import io.franzbecker.gradle.lombok.task.DelombokTask
 
 // all projects configs
 allprojects {
@@ -35,6 +38,13 @@ allprojects {
     mavenCentral()
   }
 
+  // lombok
+  apply plugin: 'io.franzbecker.gradle-lombok'
+
+  lombok {
+    version = project.lombokVersion
+  }
+
   dependencies {
     compileOnly("org.projectlombok:lombok:$lombokVersion")
     testCompileOnly("org.projectlombok:lombok:$lombokVersion")
@@ -43,7 +53,22 @@ allprojects {
     testAnnotationProcessor("org.projectlombok:lombok:$lombokVersion")
   }
 
+  task delombok(type: DelombokTask, dependsOn: compileJava) {
+    ext.outputDir = file("$buildDir/delombok")
+    outputs.dir(outputDir)
+    sourceSets.main.java.srcDirs.each {
+      inputs.dir(it)
+      args(it, "-d", outputDir)
+    }
+  }
+
+  task delombokHelp(type: DelombokTask) {
+    args "--help"
+  }
+
   javadoc {
+    dependsOn delombok
+    source = delombok.outputDir
     failOnError = false
   }
 
