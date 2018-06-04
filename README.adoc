@@ -1,0 +1,7 @@
+= jdbc-playground image:https://travis-ci.org/daggerok/jdbc-playground.svg?branch=master["Build Status", link="https://travis-ci.org/daggerok/jdbc-playground"]
+
+[source,bash]
+----
+./gradlew
+bash jdbc-app/build/libs/jdbc-app-0.0.1-SNAPSHOT.jar
+----
