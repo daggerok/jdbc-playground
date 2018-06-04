@@ -6,5 +6,5 @@ apt:
   - bash
 install: true
 script:
-- ./gradlew
+- ./gradlew >/dev/null
 - bash jdbc-app/build/libs/jdbc-app-0.0.1-SNAPSHOT.jar
