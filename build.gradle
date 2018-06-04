@@ -1,0 +1,188 @@
+plugins {
+  id 'io.spring.dependency-management' version '1.0.5.RELEASE' apply false
+  id 'org.springframework.boot' version '2.0.2.RELEASE' apply false
+  id 'io.franzbecker.gradle-lombok' version '1.14' apply false
+  id 'cn.bestwu.propdeps-maven' version '0.0.10' apply false
+  id 'cn.bestwu.propdeps-idea' version '0.0.10' apply false
+  id 'cn.bestwu.propdeps' version '0.0.10' apply false
+}
+
+import io.franzbecker.gradle.lombok.task.DelombokTask
+
+// all projects configs
+allprojects {
+  buildscript {
+    ext {
+      lombokVersion = '1.16.20'
+      springBootVersion = '2.0.2.RELEASE'
+
+      junitPlatformVersion = '1.2.0'
+      junitJupiterVersion = '5.2.0'
+      hamcrestVersion = '1.3'
+      junit4Version = '4.12'
+    }
+    repositories {
+      mavenCentral()
+    }
+  }
+
+  apply plugin: 'java'
+
+  version = '0.0.1-SNAPSHOT'
+  group = 'com.github.daggerok'
+  sourceCompatibility = targetCompatibility = JavaVersion.VERSION_1_8
+
+  defaultTasks 'clean', 'build', 'publish'
+
+  repositories {
+    mavenCentral()
+  }
+
+  // lombok
+  apply plugin: 'io.franzbecker.gradle-lombok'
+
+  lombok {
+    version = project.lombokVersion
+  }
+
+  dependencies {
+    compileOnly("org.projectlombok:lombok:$lombokVersion")
+    testCompileOnly("org.projectlombok:lombok:$lombokVersion")
+  }
+
+  task delombok(type: DelombokTask, dependsOn: compileJava) {
+    ext.outputDir = file("$buildDir/delombok")
+    outputs.dir(outputDir)
+    sourceSets.main.java.srcDirs.each {
+      inputs.dir(it)
+      args(it, "-d", outputDir)
+    }
+  }
+
+  task delombokHelp(type: DelombokTask) {
+    args "--help"
+  }
+
+  javadoc {
+    //dependsOn delombok
+    //source = delombok.outputDir
+    failOnError = false
+  }
+
+  // clean
+  clean.doFirst {
+    ["out"]
+        .collect { "$projectDir/$it" }
+        .each { delete }
+  }
+
+  // output log
+  if (JavaVersion.current().isJava8Compatible()) {
+    allprojects {
+      tasks.withType(Javadoc) {
+        options.addStringOption('Xdoclint:none', '-quiet')
+      }
+    }
+  }
+
+  // publish
+  apply plugin: 'maven'
+  apply plugin: 'maven-publish'
+  apply plugin: 'cn.bestwu.propdeps-maven'
+
+  task sourcesJar(type: Jar) {
+    from sourceSets.main.allJava
+    classifier = 'sources'
+  }
+
+  task javadocsJar(type: Jar) {
+    classifier = "javadocs"
+    from javadoc
+  }
+
+  artifacts {
+    archives sourcesJar, javadocsJar
+  }
+
+  publishing {
+    publications {
+      mavenJava(MavenPublication) {
+        from components.java
+
+        artifact sourcesJar {
+          classifier = 'sources'
+        }
+
+        artifact javadocsJar {
+          classifier = 'javadocs'
+        }
+      }
+    }
+  }
+  publishing {
+    repositories {
+      maven {
+        url "$rootProject.buildDir/maven-publish"
+      }
+    }
+  }
+}
+
+// all sub-projects (spring-boot) configs
+subprojects {
+
+  apply plugin: 'io.spring.dependency-management'
+  apply plugin: 'org.springframework.boot'
+  apply plugin: 'cn.bestwu.propdeps'
+
+  assemble.dependsOn(processResources)
+
+  dependencies {
+    implementation('org.springframework.boot:spring-boot-starter')
+
+    annotationProcessor('org.springframework.boot:spring-boot-configuration-processor')
+    testAnnotationProcessor('org.springframework.boot:spring-boot-configuration-processor')
+
+    testImplementation('org.springframework.boot:spring-boot-starter-test')
+  }
+}
+
+// junit 5
+allprojects {
+  dependencies {
+    testImplementation("junit:junit:$junit4Version")
+    testImplementation("org.hamcrest:hamcrest-core:$hamcrestVersion")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:$junitJupiterVersion")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:$junitJupiterVersion")
+    //testCompileOnly("org.apiguardian:apiguardian-api:1.0.0")
+    testRuntimeOnly("org.junit.vintage:junit-vintage-engine:$junitJupiterVersion") {
+      because 'allows JUnit 3 and JUnit 4 tests to run'
+    }
+    testRuntime("org.junit.platform:junit-platform-launcher:$junitPlatformVersion") {
+      because 'allows tests to run from IDEs that bundle older version of launcher'
+    }
+  }
+
+  test {
+    useJUnitPlatform {
+      includeEngines 'junit-jupiter', 'junit-vintage'
+    }
+  }
+}
+
+// idea sources
+apply plugin: 'idea'
+allprojects*.apply plugin: 'cn.bestwu.propdeps-idea'
+
+idea {
+  module {
+    downloadJavadoc = false
+    downloadSources = true
+  }
+}
+
+// gradle wrapper
+wrapper {
+  gradleVersion = '4.7'
+  distributionType = 'BIN'
+}
